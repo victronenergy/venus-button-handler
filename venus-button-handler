@@ -1,0 +1,193 @@
+#! /usr/bin/python -u
+
+from argparse import ArgumentParser
+import dbus
+import dbus.mainloop.glib
+import errno
+import evdev
+from evdev.ecodes import *
+from evdev.events import *
+import gobject
+import logging
+import os
+from select import select
+from settingsdevice import SettingsDevice
+import shutil
+from time import sleep, time
+import threading
+
+LONG_PRESS = 4.0
+
+log = logging.getLogger()
+
+SETTINGS = {
+    'accesspoint':  ['/Settings/Services/AccessPoint', 1, 0, 1],
+    'bluetooth':    ['/Settings/Services/Bluetooth', 1, 0, 1],
+}
+
+RESET_SETTINGS = [
+    '/Settings/Ble/Service/Pincode',
+    '/Settings/Services/AccessPoint',
+    '/Settings/Services/Bluetooth',
+]
+
+DELETE_PATHS = [
+    '/data/conf/vncpassword.txt',
+    '/data/var/lib/bluetooth',
+    '/data/var/lib/connman',
+]
+
+LEDS = {
+    'status-green': 'blink-fast',
+    'status-orange': 'none',
+    'bluetooth': 'none',
+}
+
+def get_dbus():
+    if 'DBUS_SESSION_BUS_ADDRESS' in os.environ:
+        return dbus.SessionBus()
+    return dbus.SystemBus()
+
+def find_devices():
+    devices = {}
+
+    for path in evdev.list_devices():
+        try:
+            dev = evdev.InputDevice(path)
+            if KEY_CONFIG in dev.capabilities()[EV_KEY]:
+                log.info('Using %s' % dev)
+                devices[dev.fd] = dev
+        except:
+            pass
+
+    return devices
+
+def rmpath(path):
+    try:
+        os.remove(path)
+    except OSError as e:
+        if e.errno == errno.ENOENT:
+            pass
+        elif e.errno == errno.EISDIR:
+            shutil.rmtree(path)
+        else:
+            raise
+
+class EventHandler(object):
+    def __init__(self, devices, settings):
+        self.devices = devices
+        self.settings = settings
+
+    def short_press(self):
+        newval = not self.settings['accesspoint']
+
+        log.info('%s AP/Bluetooth' % ('Enabling' if newval else 'Disabling'))
+
+        self.settings['accesspoint'] = newval
+        self.settings['bluetooth'] = newval
+
+    def long_press(self):
+        log.info('Resetting network config')
+
+        os.system('svc -d /service/gui')
+        os.system('svc -d /service/hostapd')
+        os.system('svc -d /service/vesmart-server')
+        os.system('/etc/init.d/connman stop')
+
+        t0 = time()
+
+        for name in LEDS:
+            try:
+                path = '/sys/class/leds/%s/trigger' % name
+                trig = LEDS[name]
+                with open(path, 'w') as f:
+                    f.write(trig)
+            except:
+                pass
+
+        for path in RESET_SETTINGS:
+            try:
+                log.debug('Resetting %s' % path)
+                self.settings.setDefault(path)
+            except Exception as e:
+                log.warning('Exception resetting %s:' % path)
+                log.warning('%s' % e)
+
+        for path in DELETE_PATHS:
+            try:
+                rmpath(path)
+            except Exception as e:
+                log.warning('Exception deleting %s:' % path)
+                log.warning('%s' % e)
+
+        sleep(max(2.0 - (time() - t0), 0))
+
+        os.system('/etc/init.d/connman start')
+        os.system('svc -u /service/gui')
+
+    def handle_events(self):
+        downtime = None
+        downcount = 0
+        long_seen = False
+
+        while True:
+            r, w, x = select(self.devices, [], [], 1.0 if downcount else None)
+            for i in r:
+                for event in self.devices[i].read():
+                    if event.type != EV_KEY:
+                        continue
+
+                    if event.code != KEY_CONFIG:
+                        continue
+
+                    if event.value == KeyEvent.key_down:
+                        if downcount == 0:
+                            downtime = event.timestamp()
+                        downcount += 1
+                    elif event.value == KeyEvent.key_up:
+                        downcount -= 1
+                        if downcount == 0:
+                            duration = event.timestamp() - downtime
+                            if duration < LONG_PRESS:
+                                self.short_press()
+                            long_seen = False
+
+            if downcount and time() - downtime > LONG_PRESS:
+                if not long_seen:
+                    self.long_press()
+                long_seen = True
+
+    def start(self):
+        t = threading.Thread(target=self.handle_events)
+        t.daemon = True
+        t.start()
+
+def main():
+    parser = ArgumentParser(add_help=True)
+    parser.add_argument('-d', '--debug', action='store_true')
+    parser.add_argument('-D', '--daemontools', action='store_true')
+
+    args = parser.parse_args()
+
+    logging.basicConfig(format='%(levelname)-8s %(message)s',
+                        level=(logging.DEBUG if args.debug else logging.INFO))
+
+    gobject.threads_init()
+    dbus.mainloop.glib.threads_init()
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+    mainloop = gobject.MainLoop()
+
+    devices = find_devices()
+    if not devices:
+        log.error('KEY_CONFIG not found on any input device')
+        if args.daemontools:
+            os.system('svc -d .')
+        exit(1)
+
+    settings = SettingsDevice(get_dbus(), SETTINGS, None, timeout=10)
+
+    EventHandler(devices, settings).start()
+    mainloop.run()
+
+if __name__ == '__main__':
+    main()
