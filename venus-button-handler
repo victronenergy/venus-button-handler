@@ -16,6 +16,9 @@ import shutil
 from time import sleep, time
 import threading
 
+NAME = os.path.basename(__file__)
+VERSION = '0.1'
+
 LONG_PRESS = 4.0
 
 log = logging.getLogger()
@@ -176,6 +179,8 @@ def main():
 
     logging.basicConfig(format='%(levelname)-8s %(message)s',
                         level=(logging.DEBUG if args.debug else logging.INFO))
+
+    log.info('Starting %s %s' % (NAME, VERSION))
 
     gobject.threads_init()
     dbus.mainloop.glib.threads_init()
