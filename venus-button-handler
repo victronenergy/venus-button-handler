@@ -38,9 +38,14 @@ DELETE_PATHS = [
 ]
 
 LEDS = {
+    # Cerbo GX
     'status-green': 'blink-fast',
     'status-orange': 'none',
     'bluetooth': 'none',
+
+    # Venus GX / Octo GX
+    'vecape:green:ve0': 'blink-fast',
+    'vecape:red:ve1': 'none',
 }
 
 def get_dbus():
