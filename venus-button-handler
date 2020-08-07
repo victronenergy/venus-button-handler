@@ -11,10 +11,13 @@ import gobject
 import logging
 import os
 from select import select
-from settingsdevice import SettingsDevice
 import shutil
 from time import sleep, time
 import threading
+import sys
+
+sys.path.insert(1, os.path.join(os.path.dirname(__file__), './ext/velib_python'))
+from settingsdevice import SettingsDevice
 
 NAME = os.path.basename(__file__)
 VERSION = '0.2'
