@@ -1,4 +1,4 @@
-#! /usr/bin/python -u
+#!/usr/bin/python3 -u
 
 from argparse import ArgumentParser
 import dbus
@@ -7,7 +7,8 @@ import errno
 import evdev
 from evdev.ecodes import *
 from evdev.events import *
-import gobject
+from gi.repository import GObject as gobject
+from gi.repository import GLib
 import logging
 import os
 from select import select
@@ -184,10 +185,9 @@ def main():
 
     log.info('Starting %s %s' % (NAME, VERSION))
 
-    gobject.threads_init()
     dbus.mainloop.glib.threads_init()
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
-    mainloop = gobject.MainLoop()
+    mainloop = GLib.MainLoop()
 
     devices = find_devices()
     if not devices:
