@@ -21,7 +21,7 @@ sys.path.insert(1, os.path.join(os.path.dirname(__file__), './ext/velib_python')
 from settingsdevice import SettingsDevice
 
 NAME = os.path.basename(__file__)
-VERSION = '0.2'
+VERSION = '0.3'
 
 LONG_PRESS = 4.0
 
