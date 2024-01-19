@@ -100,7 +100,7 @@ class EventHandler(object):
     def long_press(self):
         log.info('Resetting network config')
 
-        os.system('svc -d /service/gui')
+        os.system('svc -d /service/venus-platform')
         os.system('svc -d /service/hostapd')
         os.system('svc -d /service/vesmart-server')
         os.system('/etc/init.d/connman stop')
@@ -134,7 +134,7 @@ class EventHandler(object):
         sleep(max(2.0 - (time() - t0), 0))
 
         os.system('/etc/init.d/connman start')
-        os.system('svc -u /service/gui')
+        os.system('svc -u /service/venus-platform')
 
     def handle_events(self):
         downtime = None
