@@ -37,6 +37,7 @@ RESET_SETTINGS = [
     '/Settings/Services/AccessPoint',
     '/Settings/Services/AccessPointPassword',
     '/Settings/Services/Bluetooth',
+    '/Settings/System/SecurityProfile',
 ]
 
 DELETE_PATHS = [
@@ -134,8 +135,8 @@ class EventHandler(object):
 
         sleep(max(2.0 - (time() - t0), 0))
 
-        os.system('/etc/init.d/connman start')
-        os.system('svc -u /service/venus-platform')
+        # localsettings must restore the vncpassword file.
+        os.system('/sbin/reboot')
 
     def handle_events(self):
         downtime = None
