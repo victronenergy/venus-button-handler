@@ -35,6 +35,7 @@ SETTINGS = {
 RESET_SETTINGS = [
     '/Settings/Ble/Service/Pincode',
     '/Settings/Services/AccessPoint',
+    '/Settings/Services/AccessPointPassword',
     '/Settings/Services/Bluetooth',
 ]
 
